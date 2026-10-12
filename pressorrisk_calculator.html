@@ -1,0 +1,275 @@
+<title>PressorRisk Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single column, form above a persistent result card, reference material below. */
+:root{
+  --bg:#f7f6f3; --surface:#ffffff; --fg:#17181a; --muted:#5c5f63; --line:#dcdad5;
+  --blue:#0072B2; --verm:#D55E00; --green:#009E73; --warn-bg:#fdf3e7; --warn-fg:#8a4b00;
+  --font:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#15171a; --surface:#1d2024; --fg:#eceef0; --muted:#9aa0a6; --line:#30343a;
+  --blue:#56a7dc; --verm:#f08a4b; --green:#4cc4a0; --warn-bg:#33281a; --warn-fg:#f0c088;
+  color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#15171a; --surface:#1d2024; --fg:#eceef0; --muted:#9aa0a6; --line:#30343a;
+  --blue:#56a7dc; --verm:#f08a4b; --green:#4cc4a0; --warn-bg:#33281a; --warn-fg:#f0c088;
+  color-scheme:dark;}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;line-height:1.5;margin:0}
+.wrap{max-width:860px;margin:0 auto;padding-block:32px 56px;padding-left:16px;padding-right:16px}
+h1{font-size:1.6rem;font-weight:600;letter-spacing:-.02em;margin:0 0 4px;text-wrap:balance}
+.sub{color:var(--muted);font-size:.95rem;margin:0 0 20px}
+.banner{background:var(--warn-bg);color:var(--warn-fg);border-radius:6px;padding:10px 14px;
+  font-size:.86rem;margin-bottom:24px;line-height:1.45}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px}
+label{display:block;font-size:.78rem;font-weight:500;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:5px}
+.field{min-width:0}
+input,select{width:100%;font-family:var(--font);font-size:1rem;padding:9px 11px;border-radius:5px;
+  border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+input:focus-visible,select:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
+.hint{font-size:.76rem;color:var(--muted);margin-top:4px}
+.seg{display:flex;gap:0;border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.seg button{flex:1;min-width:0;padding:9px 4px;border:0;background:var(--bg);color:var(--muted);
+  font-family:var(--font);font-size:.92rem;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--blue);color:#fff;font-weight:500}
+.result{margin-top:22px;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:20px;align-items:start}
+@media(max-width:620px){.result{grid-template-columns:1fr}}
+.big{font-family:var(--mono);font-size:3.2rem;font-weight:500;line-height:1;letter-spacing:-.03em;
+  color:var(--blue);font-variant-numeric:tabular-nums}
+.big.hi{color:var(--verm)}
+.riskline{font-size:.9rem;color:var(--muted);margin-top:8px}
+.scorebox{border-left:3px solid var(--line);padding-left:16px}
+.scoreval{font-family:var(--mono);font-size:1.9rem;font-weight:500;font-variant-numeric:tabular-nums}
+.tier{display:inline-block;font-size:.76rem;font-weight:500;padding:2px 8px;border-radius:99px;
+  border:1px solid currentColor;margin-top:6px}
+table{width:100%;border-collapse:collapse;font-size:.88rem;margin-top:8px}
+th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line)}
+th{font-weight:500;color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+td:not(:first-child),th:not(:first-child){text-align:right;font-family:var(--mono);
+  font-variant-numeric:tabular-nums}
+h2{font-size:1rem;font-weight:600;margin:32px 0 10px}
+p{margin:0 0 10px}
+.small{font-size:.86rem;color:var(--muted)}
+.scale{margin-top:16px}
+.scale svg{width:100%;height:60px;display:block;overflow:visible}
+footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);font-size:.82rem;color:var(--muted)}
+code{font-family:var(--mono);font-size:.85em}
+</style>
+
+<div class="wrap">
+  <h1>PressorRisk</h1>
+  <p class="sub">Pre-operative probability of escalation to a norepinephrine infusion after
+     first-line bolus vasopressors fail, in non-cardiac surgery under general anaesthesia.</p>
+
+  <div class="banner"><strong>Research tool, not for clinical use.</strong> Derived on a single
+     Korean tertiary centre (INSPIRE, 99,357 operations, 1,007 events) and never externally
+     validated. Calibration drifts between surgical services, so another hospital would need to
+     recalibrate both intercept and slope before these probabilities meant anything locally.
+     Against a regression given the same procedure information this model gains only 0.007 of
+     AUC: its purpose is a calibrated number, not better judgement than yours.</div>
+
+  <div class="card">
+    <div class="grid">
+      <div class="field">
+        <label for="age">Age, years (20 to 90)</label>
+        <input id="age" type="number" min="20" max="90" step="1" value="65">
+      </div>
+      <div class="field">
+        <label for="bmi">BMI, kg/m² (10.2 to 66.7)</label>
+        <input id="bmi" type="number" min="10.2" max="66.7" step="0.1" placeholder="leave blank if unknown">
+        <div class="hint">Blank uses the cohort median, 23.4</div>
+      </div>
+      <div class="field">
+        <label for="sex">Sex</label>
+        <select id="sex"><option value="F">Female</option><option value="M">Male</option></select>
+      </div>
+      <div class="field">
+        <label for="asa">ASA physical status</label>
+        <select id="asa">
+          <option value="1">1</option><option value="2" selected>2</option>
+          <option value="3">3</option><option value="4-5">4 or 5</option>
+          <option value="missing">Not recorded</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Emergency operation</label>
+        <div class="seg" id="emop" role="group">
+          <button type="button" data-v="0" aria-pressed="true">No</button>
+          <button type="button" data-v="1" aria-pressed="false">Yes</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Surgical approach</label>
+        <div class="seg" id="approach" role="group">
+          <button type="button" data-v="non-open" aria-pressed="true">Non-open</button>
+          <button type="button" data-v="open" aria-pressed="false">Open</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px" class="field">
+      <label for="proc">Planned procedure, ICD-10-PCS group</label>
+      <select id="proc"></select>
+      <div class="hint" id="prochint"></div>
+    </div>
+
+    <div class="result">
+      <div>
+        <label>Predicted risk of escalation</label>
+        <div class="big" id="risk">—</div>
+        <div class="riskline" id="riskline"></div>
+        <div class="scale" id="scale"></div>
+      </div>
+      <div class="scorebox">
+        <label>Bedside point score</label>
+        <div class="scoreval" id="score">—</div>
+        <div class="riskline" id="scoreline"></div>
+        <div id="tierbadge"></div>
+      </div>
+    </div>
+  </div>
+
+  <h2>How the two numbers differ</h2>
+  <p class="small">The predicted risk is the full model: penalised logistic regression, 105
+     procedure groups, restricted cubic splines on age and BMI, cross-validated AUC 0.870 with
+     a calibration slope of 1.00. The point score is a hand-computable simplification using
+     five variables and reaching AUC 0.850. Where they disagree, the full model is the better
+     estimate; the score exists for situations without a computer, and on decision-curve
+     analysis it does not outperform a regression given the same procedure detail.</p>
+
+  <h2>Observed risk by tenth of predicted risk</h2>
+  <table id="dec"><thead><tr><th>Decile</th><th>Predicted</th><th>Observed</th>
+     <th>Share of all events</th></tr></thead><tbody></tbody></table>
+  <p class="small">The highest-risk tenth holds 62.6% of all escalations at an observed rate of
+     6.3%. The lower half runs at roughly 0.15%, about 1 in 670.</p>
+
+  <footer>
+    Derived from INSPIRE v1.4.2 (PhysioNet, doi 10.13026/1eay-yc85), Seoul National University
+    Hospital, 2011 to 2020. Outcome: norepinephrine infusion started after a prior ephedrine or
+    phenylephrine bolus. The age and BMI contributions are the lookup tables exported by the
+    fitted model itself, so this page cannot extrapolate differently from the model, and inputs
+    are restricted to the range the model has actually seen (age 20 to 90, BMI 10.2 to 66.7).
+    It reproduces the model's own exported worked example exactly. No patient data is contained
+    in or transmitted by this page; all computation happens in your browser.
+  </footer>
+</div>
+
+<script>
+const M = {"intercept": -2.012892, "sex": {"F": -0.9669, "M": -0.6498}, "asa": {"1": -1.7052, "2": -0.6273, "3": 0.6086, "4-5": 0.9213, "missing": -0.8142}, "emop": {"0": -1.0396, "1": -0.5771}, "approach": {"non-open": -1.198, "open": -0.4187}, "age": {"min": 20.0, "step": 0.1, "lp": [-0.70861, -0.707385, -0.706161, -0.704936, -0.703712, -0.702487, -0.701263, -0.700038, -0.698814, -0.697589, -0.696365, -0.69514, -0.693916, -0.692691, -0.691467, -0.690242, -0.689018, -0.687793, -0.686569, -0.685345, -0.68412, -0.682896, -0.681671, -0.680447, -0.679222, -0.677998, -0.676773, -0.675549, -0.674324, -0.6731, -0.671875, -0.670651, -0.669426, -0.668202, -0.666977, -0.665753, -0.664528, -0.663304, -0.662079, -0.660855, -0.65963, -0.658406, -0.657181, -0.655957, -0.654732, -0.653508, -0.652283, -0.651059, -0.649834, -0.64861, -0.647385, -0.646161, -0.644936, -0.643712, -0.642487, -0.641262, -0.640036, -0.63881, -0.637583, -0.636356, -0.635129, -0.6339, -0.632671, -0.631441, -0.63021, -0.628978, -0.627745, -0.62651, -0.625275, -0.624038, -0.6228, -0.62156, -0.620319, -0.619076, -0.617832, -0.616586, -0.615338, -0.614088, -0.612836, -0.611583, -0.610327, -0.609069, -0.607809, -0.606546, -0.605281, -0.604014, -0.602744, -0.601471, -0.600196, -0.598918, -0.597638, -0.596354, -0.595068, -0.593778, -0.592485, -0.59119, -0.589891, -0.588588, -0.587283, -0.585973, -0.584661, -0.583344, -0.582024, -0.5807, -0.579373, -0.578041, -0.576706, -0.575367, -0.574023, -0.572675, -0.571323, -0.569967, -0.568606, -0.567241, -0.565871, -0.564497, -0.563118, -0.561734, -0.560346, -0.558952, -0.557554, -0.55615, -0.554742, -0.553328, -0.551909, -0.550484, -0.549054, -0.547619, -0.546178, -0.544732, -0.54328, -0.541822, -0.540358, -0.538889, -0.537413, -0.535931, -0.534444, -0.53295, -0.531449, -0.529943, -0.52843, -0.52691, -0.525384, -0.523852, -0.522312, -0.520766, -0.519213, -0.517653, -0.516086, -0.514512, -0.512931, -0.511343, -0.509748, -0.508145, -0.506534, -0.504917, -0.503291, -0.501658, -0.500018, -0.498369, -0.496713, -0.495048, -0.493376, -0.491696, -0.490007, -0.488311, -0.486606, -0.484892, -0.483171, -0.48144, -0.479702, -0.477954, -0.476198, -0.474433, -0.472659, -0.470876, -0.469085, -0.467284, -0.465474, -0.463655, -0.461826, -0.459988, -0.458141, -0.456284, -0.454418, -0.452542, -0.450656, -0.44876, -0.446855, -0.44494, -0.443014, -0.441079, -0.439133, -0.437177, -0.435211, -0.433235, -0.431248, -0.42925, -0.427242, -0.425223, -0.423194, -0.421154, -0.419102, -0.41704, -0.414967, -0.412883, -0.410788, -0.408681, -0.406563, -0.404434, -0.402293, -0.400141, -0.397977, -0.395801, -0.393614, -0.391415, -0.389204, -0.386981, -0.384746, -0.382499, -0.38024, -0.377968, -0.375684, -0.373388, -0.371079, -0.368758, -0.366424, -0.364078, -0.361719, -0.359347, -0.356962, -0.354564, -0.352153, -0.349729, -0.347291, -0.344841, -0.342377, -0.3399, -0.337409, -0.334905, -0.332387, -0.329855, -0.32731, -0.324751, -0.322178, -0.319591, -0.31699, -0.314375, -0.311745, -0.309102, -0.306444, -0.303771, -0.301084, -0.298383, -0.295667, -0.292936, -0.290191, -0.28743, -0.284655, -0.281865, -0.27906, -0.276239, -0.273404, -0.270553, -0.267687, -0.264805, -0.261908, -0.258995, -0.256067, -0.253123, -0.250163, -0.247187, -0.244196, -0.241188, -0.238165, -0.235125, -0.232069, -0.228997, -0.225908, -0.222803, -0.219682, -0.216544, -0.213389, -0.210218, -0.207029, -0.203824, -0.200602, -0.197363, -0.194107, -0.190834, -0.187544, -0.184236, -0.180911, -0.177568, -0.174208, -0.170831, -0.167435, -0.164023, -0.160592, -0.157143, -0.153677, -0.150192, -0.14669, -0.143171, -0.139635, -0.136083, -0.132516, -0.128933, -0.125335, -0.121723, -0.118097, -0.114457, -0.110805, -0.10714, -0.103463, -0.099774, -0.096074, -0.092364, -0.088643, -0.084912, -0.081172, -0.077423, -0.073666, -0.069901, -0.066128, -0.062348, -0.058562, -0.054769, -0.050971, -0.047167, -0.043359, -0.039546, -0.03573, -0.03191, -0.028087, -0.024262, -0.020434, -0.016605, -0.012775, -0.008944, -0.005113, -0.001282, 0.002548, 0.006377, 0.010204, 0.01403, 0.017852, 0.021672, 0.025489, 0.029301, 0.033109, 0.036913, 0.040711, 0.044503, 0.04829, 0.052069, 0.055842, 0.059607, 0.063364, 0.067113, 0.070852, 0.074583, 0.078303, 0.082013, 0.085713, 0.089401, 0.093078, 0.096743, 0.100395, 0.104034, 0.10766, 0.111271, 0.114869, 0.118451, 0.122018, 0.12557, 0.129105, 0.132624, 0.136125, 0.139609, 0.143075, 0.146523, 0.149951, 0.153361, 0.15675, 0.160119, 0.163467, 0.166794, 0.1701, 0.173383, 0.176643, 0.179881, 0.183095, 0.186285, 0.189451, 0.192592, 0.195708, 0.198797, 0.201861, 0.204898, 0.207908, 0.21089, 0.213845, 0.216772, 0.219673, 0.222547, 0.225394, 0.228214, 0.231009, 0.233777, 0.236519, 0.239235, 0.241926, 0.244591, 0.247232, 0.249847, 0.252437, 0.255003, 0.257544, 0.260061, 0.262554, 0.265023, 0.267468, 0.26989, 0.272288, 0.274663, 0.277015, 0.279345, 0.281651, 0.283935, 0.286197, 0.288437, 0.290655, 0.292851, 0.295026, 0.29718, 0.299312, 0.301423, 0.303514, 0.305583, 0.307633, 0.309662, 0.311671, 0.31366, 0.31563, 0.31758, 0.319511, 0.321422, 0.323315, 0.325189, 0.327044, 0.328881, 0.3307, 0.332501, 0.334284, 0.336049, 0.337796, 0.339527, 0.34124, 0.342936, 0.344616, 0.346279, 0.347926, 0.349556, 0.351171, 0.352769, 0.354352, 0.35592, 0.357472, 0.35901, 0.360532, 0.362039, 0.363532, 0.365011, 0.366476, 0.367926, 0.369363, 0.370786, 0.372196, 0.373592, 0.374976, 0.376346, 0.377704, 0.379049, 0.380382, 0.381703, 0.383012, 0.384309, 0.385595, 0.386869, 0.388132, 0.389383, 0.390624, 0.391855, 0.393075, 0.394284, 0.395484, 0.396673, 0.397853, 0.399023, 0.400184, 0.401335, 0.402478, 0.403611, 0.404737, 0.405853, 0.406961, 0.408062, 0.409154, 0.410239, 0.411316, 0.412385, 0.413448, 0.414503, 0.415552, 0.416594, 0.41763, 0.418659, 0.419683, 0.4207, 0.421712, 0.422718, 0.423719, 0.424715, 0.425705, 0.426691, 0.427673, 0.42865, 0.429622, 0.430591, 0.431556, 0.432517, 0.433475, 0.434429, 0.43538, 0.436328, 0.437274, 0.438217, 0.439157, 0.440096, 0.441032, 0.441966, 0.442899, 0.443831, 0.444761, 0.44569, 0.446618, 0.447545, 0.448472, 0.449398, 0.450324, 0.45125, 0.452176, 0.453103, 0.454029, 0.454955, 0.455881, 0.456807, 0.457733, 0.458659, 0.459586, 0.460512, 0.461438, 0.462364, 0.46329, 0.464216, 0.465142, 0.466069, 0.466995, 0.467921, 0.468847, 0.469773, 0.470699, 0.471626, 0.472552, 0.473478, 0.474404, 0.47533, 0.476256, 0.477182, 0.478109, 0.479035, 0.479961, 0.480887, 0.481813, 0.482739, 0.483665, 0.484592, 0.485518, 0.486444, 0.48737, 0.488296, 0.489222, 0.490148, 0.491075, 0.492001, 0.492927, 0.493853, 0.494779, 0.495705, 0.496631, 0.497558, 0.498484, 0.49941, 0.500336, 0.501262, 0.502188, 0.503115, 0.504041, 0.504967, 0.505893, 0.506819, 0.507745, 0.508671, 0.509598, 0.510524, 0.51145, 0.512376, 0.513302, 0.514228, 0.515154, 0.516081, 0.517007, 0.517933, 0.518859, 0.519785, 0.520711, 0.521637, 0.522564, 0.52349, 0.524416, 0.525342, 0.526268, 0.527194, 0.52812, 0.529047, 0.529973, 0.530899, 0.531825, 0.532751, 0.533677, 0.534604, 0.53553, 0.536456, 0.537382, 0.538308, 0.539234, 0.54016, 0.541087, 0.542013, 0.542939, 0.543865, 0.544791, 0.545717, 0.546643, 0.54757, 0.548496, 0.549422, 0.550348, 0.551274, 0.5522, 0.553126, 0.554053, 0.554979, 0.555905, 0.556831, 0.557757, 0.558683, 0.55961, 0.560536, 0.561462, 0.562388, 0.563314, 0.56424, 0.565166, 0.566093, 0.567019, 0.567945, 0.568871, 0.569797, 0.570723, 0.571649, 0.572576, 0.573502, 0.574428, 0.575354, 0.57628, 0.577206, 0.578132, 0.579059, 0.579985, 0.580911, 0.581837, 0.582763, 0.583689, 0.584615, 0.585542, 0.586468, 0.587394, 0.58832, 0.589246], "observed_min": 20.0, "observed_max": 90.0}, "bmi": {"min": 10.2, "step": 0.1, "lp": [0.249276, 0.24688, 0.244485, 0.24209, 0.239694, 0.237299, 0.234904, 0.232508, 0.230113, 0.227718, 0.225322, 0.222927, 0.220531, 0.218136, 0.215741, 0.213345, 0.21095, 0.208555, 0.206159, 0.203764, 0.201368, 0.198973, 0.196578, 0.194182, 0.191787, 0.189392, 0.186996, 0.184601, 0.182206, 0.17981, 0.177415, 0.175019, 0.172624, 0.170229, 0.167833, 0.165438, 0.163043, 0.160647, 0.158252, 0.155856, 0.153461, 0.151066, 0.14867, 0.146275, 0.14388, 0.141484, 0.139089, 0.136694, 0.134298, 0.131903, 0.129507, 0.127112, 0.124717, 0.122321, 0.119926, 0.117531, 0.115135, 0.11274, 0.110344, 0.107949, 0.105554, 0.103158, 0.100763, 0.098368, 0.095972, 0.093577, 0.091181, 0.088786, 0.086391, 0.083995, 0.0816, 0.079205, 0.076809, 0.074414, 0.072019, 0.069623, 0.067228, 0.064832, 0.062437, 0.060042, 0.057646, 0.055251, 0.052856, 0.050461, 0.048068, 0.045679, 0.043294, 0.040917, 0.038547, 0.036186, 0.033837, 0.0315, 0.029177, 0.026869, 0.024578, 0.022306, 0.020053, 0.017822, 0.015613, 0.013429, 0.011271, 0.00914, 0.007038, 0.004966, 0.002926, 0.000919, -0.001053, -0.002988, -0.004886, -0.006745, -0.008563, -0.010339, -0.012071, -0.013758, -0.015399, -0.016991, -0.018533, -0.020025, -0.021463, -0.022848, -0.024177, -0.025449, -0.026663, -0.027818, -0.028913, -0.029947, -0.030919, -0.031828, -0.032674, -0.033455, -0.034171, -0.034821, -0.035403, -0.035917, -0.036361, -0.036736, -0.03704, -0.037272, -0.037431, -0.037517, -0.037528, -0.037463, -0.037322, -0.037103, -0.036807, -0.036431, -0.035975, -0.035438, -0.034819, -0.034118, -0.033337, -0.032477, -0.031541, -0.03053, -0.029447, -0.028292, -0.027068, -0.025777, -0.024421, -0.023001, -0.02152, -0.019979, -0.01838, -0.016724, -0.015015, -0.013253, -0.011441, -0.00958, -0.007672, -0.00572, -0.003724, -0.001687, 0.000389, 0.002502, 0.004651, 0.006834, 0.009049, 0.011293, 0.013566, 0.015865, 0.018189, 0.020535, 0.022902, 0.025287, 0.02769, 0.030108, 0.032539, 0.034981, 0.037433, 0.039892, 0.042358, 0.044827, 0.047298, 0.04977, 0.052242, 0.054714, 0.057186, 0.059657, 0.062129, 0.064601, 0.067073, 0.069545, 0.072016, 0.074488, 0.07696, 0.079432, 0.081904, 0.084375, 0.086847, 0.089319, 0.091791, 0.094262, 0.096734, 0.099206, 0.101678, 0.10415, 0.106621, 0.109093, 0.111565, 0.114037, 0.116509, 0.11898, 0.121452, 0.123924, 0.126396, 0.128868, 0.131339, 0.133811, 0.136283, 0.138755, 0.141227, 0.143698, 0.14617, 0.148642, 0.151114, 0.153586, 0.156057, 0.158529, 0.161001, 0.163473, 0.165945, 0.168416, 0.170888, 0.17336, 0.175832, 0.178304, 0.180775, 0.183247, 0.185719, 0.188191, 0.190663, 0.193134, 0.195606, 0.198078, 0.20055, 0.203022, 0.205493, 0.207965, 0.210437, 0.212909, 0.215381, 0.217852, 0.220324, 0.222796, 0.225268, 0.22774, 0.230211, 0.232683, 0.235155, 0.237627, 0.240098, 0.24257, 0.245042, 0.247514, 0.249986, 0.252457, 0.254929, 0.257401, 0.259873, 0.262345, 0.264816, 0.267288, 0.26976, 0.272232, 0.274704, 0.277175, 0.279647, 0.282119, 0.284591, 0.287063, 0.289534, 0.292006, 0.294478, 0.29695, 0.299422, 0.301893, 0.304365, 0.306837, 0.309309, 0.311781, 0.314252, 0.316724, 0.319196, 0.321668, 0.32414, 0.326611, 0.329083, 0.331555, 0.334027, 0.336499, 0.33897, 0.341442, 0.343914, 0.346386, 0.348858, 0.351329, 0.353801, 0.356273, 0.358745, 0.361217, 0.363688, 0.36616, 0.368632, 0.371104, 0.373575, 0.376047, 0.378519, 0.380991, 0.383463, 0.385934, 0.388406, 0.390878, 0.39335, 0.395822, 0.398293, 0.400765, 0.403237, 0.405709, 0.408181, 0.410652, 0.413124, 0.415596, 0.418068, 0.42054, 0.423011, 0.425483, 0.427955, 0.430427, 0.432899, 0.43537, 0.437842, 0.440314, 0.442786, 0.445258, 0.447729, 0.450201, 0.452673, 0.455145, 0.457617, 0.460088, 0.46256, 0.465032, 0.467504, 0.469976, 0.472447, 0.474919, 0.477391, 0.479863, 0.482335, 0.484806, 0.487278, 0.48975, 0.492222, 0.494694, 0.497165, 0.499637, 0.502109, 0.504581, 0.507052, 0.509524, 0.511996, 0.514468, 0.51694, 0.519411, 0.521883, 0.524355, 0.526827, 0.529299, 0.53177, 0.534242, 0.536714, 0.539186, 0.541658, 0.544129, 0.546601, 0.549073, 0.551545, 0.554017, 0.556488, 0.55896, 0.561432, 0.563904, 0.566376, 0.568847, 0.571319, 0.573791, 0.576263, 0.578735, 0.581206, 0.583678, 0.58615, 0.588622, 0.591094, 0.593565, 0.596037, 0.598509, 0.600981, 0.603453, 0.605924, 0.608396, 0.610868, 0.61334, 0.615812, 0.618283, 0.620755, 0.623227, 0.625699, 0.628171, 0.630642, 0.633114, 0.635586, 0.638058, 0.64053, 0.643001, 0.645473, 0.647945, 0.650417, 0.652888, 0.65536, 0.657832, 0.660304, 0.662776, 0.665247, 0.667719, 0.670191, 0.672663, 0.675135, 0.677606, 0.680078, 0.68255, 0.685022, 0.687494, 0.689965, 0.692437, 0.694909, 0.697381, 0.699853, 0.702324, 0.704796, 0.707268, 0.70974, 0.712212, 0.714683, 0.717155, 0.719627, 0.722099, 0.724571, 0.727042, 0.729514, 0.731986, 0.734458, 0.73693, 0.739401, 0.741873, 0.744345, 0.746817, 0.749289, 0.75176, 0.754232, 0.756704, 0.759176, 0.761648, 0.764119, 0.766591, 0.769063, 0.771535, 0.774007, 0.776478, 0.77895, 0.781422, 0.783894, 0.786365, 0.788837, 0.791309, 0.793781, 0.796253, 0.798724, 0.801196, 0.803668, 0.80614, 0.808612, 0.811083, 0.813555, 0.816027, 0.818499, 0.820971, 0.823442, 0.825914, 0.828386, 0.830858, 0.83333, 0.835801, 0.838273, 0.840745, 0.843217, 0.845689, 0.84816, 0.850632, 0.853104, 0.855576, 0.858048, 0.860519, 0.862991, 0.865463, 0.867935, 0.870407, 0.872878, 0.87535, 0.877822, 0.880294, 0.882766, 0.885237, 0.887709, 0.890181, 0.892653, 0.895125, 0.897596, 0.900068, 0.90254, 0.905012, 0.907484, 0.909955, 0.912427, 0.914899, 0.917371, 0.919842, 0.922314, 0.924786, 0.927258, 0.92973, 0.932201, 0.934673, 0.937145, 0.939617, 0.942089, 0.94456, 0.947032, 0.949504, 0.951976, 0.954448, 0.956919, 0.959391, 0.961863, 0.964335, 0.966807, 0.969278], "observed_min": 10.204081632653063, "observed_max": 66.66666666666667}, "bmiMedian": 23.44, "procs": [{"c": "0DJ", "n": "Gastrointestinal: inspection", "t": "T4", "o": 16.08, "p": 5, "b": 2.4487}, {"c": "0FY", "n": "Hepatobiliary and pancreas: transplantation", "t": "T4", "o": 13.56, "p": 5, "b": 1.8078}, {"c": "0NB", "n": "Head and facial bones: excision", "t": "T4", "o": 10.41, "p": 5, "b": 1.77}, {"c": "OTHER_04", "n": "Other lower arteries procedures", "t": "T4", "o": 9.02, "p": 5, "b": 1.4141}, {"c": "0W3", "n": "Anatomical regions, general: control of bleeding", "t": "T4", "o": 6.25, "p": 5, "b": 0.9935}, {"c": "0HR", "n": "Skin and breast: replacement", "t": "T4", "o": 5.38, "p": 5, "b": 2.686}, {"c": "0HX", "n": "Skin and breast: transfer", "t": "T4", "o": 5.28, "p": 5, "b": 2.4167}, {"c": "0D1", "n": "Gastrointestinal: bypass", "t": "T4", "o": 5.18, "p": 5, "b": 1.4858}, {"c": "OTHER_0D", "n": "Other gastrointestinal procedures", "t": "T4", "o": 4.71, "p": 5, "b": 0.479}, {"c": "0B1", "n": "Respiratory: bypass", "t": "T4", "o": 4.56, "p": 5, "b": 0.1862}, {"c": "OTHER_0B", "n": "Other respiratory procedures", "t": "T4", "o": 4.27, "p": 5, "b": 0.8372}, {"c": "031", "n": "Upper arteries: bypass", "t": "T4", "o": 4.11, "p": 5, "b": 1.3277}, {"c": "OTHER_07", "n": "Other lymphatic and haemic procedures", "t": "T3", "o": 3.61, "p": 3, "b": 0.4552}, {"c": "OTHER_0Y", "n": "Other anatomical regions, lower extremity procedures", "t": "T3", "o": 2.86, "p": 3, "b": 0.2204}, {"c": "OTHER_0W", "n": "Other anatomical regions, general procedures", "t": "T3", "o": 2.63, "p": 3, "b": 0.6678}, {"c": "0WJ", "n": "Anatomical regions, general: inspection", "t": "T3", "o": 2.5, "p": 3, "b": 0.6624}, {"c": "OTHER_03", "n": "Other upper arteries procedures", "t": "T3", "o": 2.46, "p": 3, "b": 0.0725}, {"c": "0TY", "n": "Urinary: transplantation", "t": "T3", "o": 2.15, "p": 3, "b": -0.0753}, {"c": "0WB", "n": "Anatomical regions, general: excision", "t": "T3", "o": 2.04, "p": 3, "b": 1.3272}, {"c": "OTHER_00", "n": "Other central nervous system procedures", "t": "T3", "o": 1.92, "p": 3, "b": 0.5619}, {"c": "OTHER_0A", "n": "Other anatomical regions procedures", "t": "T3", "o": 1.89, "p": 3, "b": 0.0747}, {"c": "0FB", "n": "Hepatobiliary and pancreas: excision", "t": "T3", "o": 1.87, "p": 3, "b": 0.9755}, {"c": "0QH", "n": "Lower bones: insertion", "t": "T3", "o": 1.86, "p": 3, "b": 0.1927}, {"c": "OTHER_0F", "n": "Other hepatobiliary and pancreas procedures", "t": "T3", "o": 1.75, "p": 3, "b": 0.0518}, {"c": "0TT", "n": "Urinary: resection", "t": "T3", "o": 1.52, "p": 3, "b": 0.5151}, {"c": "10D", "n": "Central nervous system: extraction", "t": "T3", "o": 1.52, "p": 3, "b": 0.4445}, {"c": "0DB", "n": "Gastrointestinal: excision", "t": "T3", "o": 1.38, "p": 3, "b": 0.7105}, {"c": "0HD", "n": "Skin and breast: extraction", "t": "T3", "o": 1.38, "p": 3, "b": 0.6153}, {"c": "07B", "n": "Lymphatic and haemic: excision", "t": "T3", "o": 1.29, "p": 3, "b": 0.7598}, {"c": "0HQ", "n": "Skin and breast: repair", "t": "T3", "o": 1.24, "p": 3, "b": 0.8401}, {"c": "001", "n": "Central nervous system: bypass", "t": "T3", "o": 1.22, "p": 3, "b": -0.5759}, {"c": "009", "n": "Central nervous system: drainage", "t": "T3", "o": 1.22, "p": 3, "b": -0.0777}, {"c": "0DT", "n": "Gastrointestinal: resection", "t": "T3", "o": 1.12, "p": 3, "b": 0.2574}, {"c": "OTHER_0Q", "n": "Other lower bones procedures", "t": "T2", "o": 0.99, "p": 2, "b": -0.0046}, {"c": "0DQ", "n": "Gastrointestinal: repair", "t": "T2", "o": 0.98, "p": 2, "b": -0.182}, {"c": "OTHER_0H", "n": "Other skin and breast procedures", "t": "T2", "o": 0.95, "p": 2, "b": 0.3356}, {"c": "0RG", "n": "Upper joints: fusion", "t": "T2", "o": 0.93, "p": 2, "b": -0.2048}, {"c": "00J", "n": "Central nervous system: inspection", "t": "T2", "o": 0.91, "p": 2, "b": -0.0676}, {"c": "0TM", "n": "Urinary: reattachment", "t": "T2", "o": 0.91, "p": 2, "b": -0.0709}, {"c": "OTHER_0S", "n": "Other lower joints procedures", "t": "T2", "o": 0.91, "p": 2, "b": -0.0119}, {"c": "OTHER_0L", "n": "Other tendons procedures", "t": "T2", "o": 0.88, "p": 2, "b": 0.0599}, {"c": "0BT", "n": "Respiratory: resection", "t": "T2", "o": 0.87, "p": 2, "b": 0.4461}, {"c": "0VT", "n": "Male reproductive: resection", "t": "T2", "o": 0.81, "p": 2, "b": -0.3868}, {"c": "OTHER_0C", "n": "Other mouth and throat procedures", "t": "T2", "o": 0.8, "p": 2, "b": -0.1142}, {"c": "0FT", "n": "Hepatobiliary and pancreas: resection", "t": "T2", "o": 0.76, "p": 2, "b": 0.3581}, {"c": "0SG", "n": "Lower joints: fusion", "t": "T2", "o": 0.68, "p": 2, "b": -0.4531}, {"c": "0CT", "n": "Mouth and throat: resection", "t": "T2", "o": 0.62, "p": 2, "b": 0.1211}, {"c": "0UB", "n": "Female reproductive: excision", "t": "T2", "o": 0.59, "p": 2, "b": 0.6365}, {"c": "0GQ", "n": "Endocrine: repair", "t": "T2", "o": 0.57, "p": 2, "b": -0.1555}, {"c": "0BB", "n": "Respiratory: excision", "t": "T2", "o": 0.53, "p": 2, "b": -0.0221}, {"c": "OTHER_0K", "n": "Other muscles procedures", "t": "T2", "o": 0.52, "p": 2, "b": -0.0384}, {"c": "00B", "n": "Central nervous system: excision", "t": "T2", "o": 0.51, "p": 2, "b": -0.5728}, {"c": "0PB", "n": "Upper bones: excision", "t": "T2", "o": 0.5, "p": 2, "b": -0.3688}, {"c": "OTHER_0N", "n": "Other head and facial bones procedures", "t": "T2", "o": 0.5, "p": 2, "b": -0.0852}, {"c": "0CB", "n": "Mouth and throat: excision", "t": "T2", "o": 0.47, "p": 2, "b": -0.2512}, {"c": "07T", "n": "Lymphatic and haemic: resection", "t": "T2", "o": 0.44, "p": 2, "b": -0.2834}, {"c": "0GB", "n": "Endocrine: excision", "t": "T2", "o": 0.44, "p": 2, "b": -0.2465}, {"c": "0GT", "n": "Endocrine: resection", "t": "T2", "o": 0.43, "p": 2, "b": -0.1809}, {"c": "0JB", "n": "Subcutaneous tissue and fascia: excision", "t": "T2", "o": 0.43, "p": 2, "b": -0.3817}, {"c": "0TC", "n": "Urinary: extirpation", "t": "T2", "o": 0.43, "p": 2, "b": -0.4799}, {"c": "OTHER_0U", "n": "Other female reproductive procedures", "t": "T2", "o": 0.42, "p": 2, "b": -0.0875}, {"c": "0SR", "n": "Lower joints: replacement", "t": "T2", "o": 0.36, "p": 2, "b": -0.6619}, {"c": "0H0", "n": "Skin and breast: alteration", "t": "T2", "o": 0.35, "p": 2, "b": -0.0832}, {"c": "09B", "n": "Ear, nose and sinus: excision", "t": "T2", "o": 0.32, "p": 2, "b": -0.6209}, {"c": "0UT", "n": "Female reproductive: resection", "t": "T1", "o": 0.28, "p": 0, "b": -0.3466}, {"c": "OTHER_09", "n": "Other ear, nose and sinus procedures", "t": "T2", "o": 0.27, "p": 2, "b": -0.4}, {"c": "08Q", "n": "Eye: repair", "t": "T2", "o": 0.26, "p": 2, "b": -0.2154}, {"c": "OTHER_0R", "n": "Other upper joints procedures", "t": "T2", "o": 0.26, "p": 2, "b": -0.4828}, {"c": "0HB", "n": "Skin and breast: excision", "t": "T1", "o": 0.25, "p": 0, "b": -0.7003}, {"c": "0NQ", "n": "Head and facial bones: repair", "t": "T2", "o": 0.25, "p": 2, "b": -0.5078}, {"c": "0TB", "n": "Urinary: excision", "t": "T1", "o": 0.24, "p": 0, "b": -1.0264}, {"c": "03L", "n": "Upper arteries: occlusion", "t": "T1", "o": 0.22, "p": 0, "b": -1.047}, {"c": "OTHER_0P", "n": "Other upper bones procedures", "t": "T2", "o": 0.22, "p": 2, "b": -0.3294}, {"c": "0PQ", "n": "Upper bones: repair", "t": "T1", "o": 0.21, "p": 0, "b": -0.7385}, {"c": "OTHER_0T", "n": "Other urinary procedures", "t": "T1", "o": 0.13, "p": 0, "b": -0.7187}, {"c": "03V", "n": "Upper arteries: restriction", "t": "T1", "o": 0.11, "p": 0, "b": -0.5964}, {"c": "0UJ", "n": "Female reproductive: inspection", "t": "T1", "o": 0.07, "p": 0, "b": -0.3974}, {"c": "0WQ", "n": "Anatomical regions, general: repair", "t": "T1", "o": 0.06, "p": 0, "b": -0.8582}, {"c": "09Q", "n": "Ear, nose and sinus: repair", "t": "T1", "o": 0.05, "p": 0, "b": -2.3482}, {"c": "08R", "n": "Eye: replacement", "t": "T1", "o": 0.04, "p": 0, "b": -1.3191}, {"c": "01N", "n": "Peripheral nervous system: release", "t": "T1", "o": 0.0, "p": 0, "b": -0.4578}, {"c": "05D", "n": "Upper veins: extraction", "t": "T1", "o": 0.0, "p": 0, "b": -0.5029}, {"c": "08D", "n": "Eye: extraction", "t": "T1", "o": 0.0, "p": 0, "b": -0.5304}, {"c": "08S", "n": "Eye: reposition", "t": "T1", "o": 0.0, "p": 0, "b": -0.3577}, {"c": "090", "n": "Ear, nose and sinus: alteration", "t": "T1", "o": 0.0, "p": 0, "b": -0.1803}, {"c": "099", "n": "Ear, nose and sinus: drainage", "t": "T1", "o": 0.0, "p": 0, "b": -0.4091}, {"c": "0C7", "n": "Mouth and throat: dilation", "t": "T1", "o": 0.0, "p": 0, "b": -0.5312}, {"c": "0HH", "n": "Skin and breast: insertion", "t": "T1", "o": 0.0, "p": 0, "b": -0.4378}, {"c": "0LQ", "n": "Tendons: repair", "t": "T1", "o": 0.0, "p": 0, "b": -0.5584}, {"c": "0PH", "n": "Upper bones: insertion", "t": "T1", "o": 0.0, "p": 0, "b": -1.286}, {"c": "0RB", "n": "Upper joints: excision", "t": "T1", "o": 0.0, "p": 0, "b": -0.8908}, {"c": "0SB", "n": "Lower joints: excision", "t": "T1", "o": 0.0, "p": 0, "b": -0.4721}, {"c": "0VB", "n": "Male reproductive: excision", "t": "T1", "o": 0.0, "p": 0, "b": -1.0537}, {"c": "0WU", "n": "Anatomical regions, general: supplement", "t": "T1", "o": 0.0, "p": 0, "b": -0.7341}, {"c": "0YQ", "n": "Anatomical regions, lower extremity: repair", "t": "T1", "o": 0.0, "p": 0, "b": -1.238}, {"c": "OTHER_01", "n": "Other peripheral nervous system procedures", "t": "T2", "o": 0.0, "p": 2, "b": -0.0736}, {"c": "OTHER_05", "n": "Other upper veins procedures", "t": "T2", "o": 0.0, "p": 2, "b": -0.1212}, {"c": "OTHER_06", "n": "Other lower veins procedures", "t": "T2", "o": 0.0, "p": 2, "b": -0.1455}, {"c": "OTHER_08", "n": "Other eye procedures", "t": "T1", "o": 0.0, "p": 0, "b": -0.3802}, {"c": "OTHER_0E", "n": "Other obstetrics procedures", "t": "T2", "o": 0.0, "p": 2, "b": -0.0437}, {"c": "OTHER_0G", "n": "Other endocrine procedures", "t": "T2", "o": 0.0, "p": 2, "b": -0.0092}, {"c": "OTHER_0J", "n": "Other subcutaneous tissue and fascia procedures", "t": "T1", "o": 0.0, "p": 0, "b": -0.518}, {"c": "OTHER_0M", "n": "Other bursae and ligaments procedures", "t": "T1", "o": 0.0, "p": 0, "b": -0.2988}, {"c": "OTHER_0V", "n": "Other male reproductive procedures", "t": "T1", "o": 0.0, "p": 0, "b": -0.422}, {"c": "OTHER_0X", "n": "Other anatomical regions, upper extremity procedures", "t": "T1", "o": 0.0, "p": 0, "b": -0.4017}], "points": {"age60": 1, "asa": {"1": 0, "2": 2, "3": 3, "4-5": 3, "missing": 1}, "emop": 1, "open": 1}, "scoreLookup": {"0": 0.03, "1": 0.0, "2": 0.08, "3": 0.13, "4": 0.28, "5": 0.54, "6": 0.94, "7": 2.32, "8": 5.69, "9": 7.88, "10": 12.6, "11": 22.28}, "deciles": [{"d": 1, "obs": 0.03, "pred": 0.04, "share": 0.3}, {"d": 2, "obs": 0.04, "pred": 0.09, "share": 0.4}, {"d": 3, "obs": 0.13, "pred": 0.13, "share": 1.3}, {"d": 4, "obs": 0.26, "pred": 0.2, "share": 2.6}, {"d": 5, "obs": 0.3, "pred": 0.28, "share": 3.0}, {"d": 6, "obs": 0.26, "pred": 0.4, "share": 2.6}, {"d": 7, "obs": 0.58, "pred": 0.57, "share": 5.8}, {"d": 8, "obs": 0.63, "pred": 0.83, "share": 6.3}, {"d": 9, "obs": 1.42, "pred": 1.44, "share": 14.0}, {"d": 10, "obs": 6.47, "pred": 6.16, "share": 63.9}], "bmiImputedLP": -0.035596};
+
+const el = id => document.getElementById(id);
+const state = {emop:"0", approach:"non-open"};
+
+const sel = el("proc");
+M.procs.forEach(p => {
+  const o = document.createElement("option");
+  o.value = p.c;
+  o.textContent = `${p.n}  (${p.c}) — ${p.o.toFixed(2)}% observed`;
+  sel.appendChild(o);
+});
+sel.value = M.procs.find(p => p.c === "0DJ") ? "0DJ" : M.procs[0].c;
+
+document.querySelectorAll(".seg").forEach(g => {
+  g.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    [...g.querySelectorAll("button")].forEach(x => x.setAttribute("aria-pressed", x === b));
+    state[g.id] = b.dataset.v;
+    recompute();
+  });
+});
+
+function lookup(tab, x){
+  const g = tab.lp, n = g.length;
+  const t = (Math.min(Math.max(x, tab.min), tab.min + tab.step * (n - 1)) - tab.min) / tab.step;
+  const i = Math.min(Math.floor(t), n - 2), f = t - i;
+  return g[i] * (1 - f) + g[i + 1] * f;
+}
+
+function recompute(){
+  const age = parseFloat(el("age").value);
+  const bmiRaw = el("bmi").value.trim();
+  const bmi = bmiRaw === "" ? null : parseFloat(bmiRaw);
+  const asa = el("asa").value, sex = el("sex").value;
+  const p = M.procs.find(x => x.c === sel.value);
+
+  el("prochint").textContent =
+    `Risk tier ${p.t.replace("T","")} of 4 · ${p.o.toFixed(2)}% of these operations escalated · worth ${p.p} point${p.p===1?"":"s"}`;
+
+  const aOK = isFinite(age) && age >= M.age.observed_min && age <= M.age.observed_max;
+  const bOK = bmi === null || (isFinite(bmi) && bmi >= M.bmi.observed_min && bmi <= M.bmi.observed_max);
+  if (!aOK || !bOK){
+    el("risk").textContent = "—";
+    const r1 = v => (Math.round(v * 10) / 10).toFixed(1);
+    el("riskline").textContent = `Outside the range the model has seen. Age ${r1(M.age.observed_min)}`
+      + ` to ${r1(M.age.observed_max)}, BMI ${r1(M.bmi.observed_min)} to ${r1(M.bmi.observed_max)},`
+      + ` or leave BMI blank.`;
+    el("score").textContent = "—"; el("scoreline").textContent = ""; el("scale").innerHTML = "";
+    el("tierbadge").innerHTML = ""; return;
+  }
+
+  // every level carries its own coefficient: the model uses no dropped reference category
+  let lp = M.intercept + M.sex[sex] + M.asa[asa] + M.emop[state.emop]
+         + M.approach[state.approach] + p.b;
+  lp += lookup(M.age, age);
+  lp += bmi === null ? M.bmiImputedLP : lookup(M.bmi, bmi);
+  const risk = 100 / (1 + Math.exp(-lp));
+
+  const rEl = el("risk");
+  rEl.textContent = (risk < 1 ? risk.toFixed(2) : risk.toFixed(1)) + "%";
+  rEl.classList.toggle("hi", risk >= 3);
+  const inv = Math.round(100 / risk);
+  el("riskline").textContent =
+    `About 1 in ${inv.toLocaleString()} operations like this escalated. Cohort average 1.0%.`;
+
+  let pts = M.points.asa[asa];
+  if (age >= 60) pts += M.points.age60;
+  if (state.emop === "1") pts += M.points.emop;
+  if (state.approach === "open") pts += M.points.open;
+  pts += p.p;
+  const obs = M.scoreLookup[pts];
+  el("score").textContent = pts + " / 11";
+  el("scoreline").textContent = obs === undefined ? "No patients in the cohort scored this."
+    : `${obs.toFixed(2)}% of cohort patients scoring ${pts} escalated.`;
+  const tcol = {T1:"var(--green)",T2:"var(--muted)",T3:"var(--verm)",T4:"var(--verm)"}[p.t];
+  el("tierbadge").innerHTML =
+    `<span class="tier" style="color:${tcol}">Procedure risk tier ${p.t.replace("T","")}</span>`;
+
+  drawScale(risk);
+}
+
+function drawScale(risk){
+  const lo = 0.01, hi = 50;
+  const x = v => (Math.log10(Math.min(Math.max(v, lo), hi)) - Math.log10(lo)) /
+                 (Math.log10(hi) - Math.log10(lo)) * 100;
+  const marks = [[0.15,"lowest half"],[1.01,"average"],[6.2,"highest tenth"]];
+  el("scale").innerHTML = `
+  <svg viewBox="0 0 100 18" preserveAspectRatio="none" aria-hidden="true" style="height:46px">
+    <line x1="0" y1="9" x2="100" y2="9" stroke="var(--line)" stroke-width="1.1"/>
+    ${marks.map(([v]) => `<line x1="${x(v)}" y1="6" x2="${x(v)}" y2="12" stroke="var(--line)" stroke-width="1.1"/>`).join("")}
+    <circle cx="${x(risk)}" cy="9" r="3.2" fill="${risk>=3?"var(--verm)":"var(--blue)"}"/>
+  </svg>
+  <div style="position:relative;height:14px;font-size:.7rem;color:var(--muted)">
+    ${marks.map(([v,l]) => `<span style="position:absolute;left:${x(v)}%;transform:translateX(-50%);white-space:nowrap">${l}</span>`).join("")}
+  </div>`;
+}
+
+const tb = document.querySelector("#dec tbody");
+M.deciles.forEach(d => {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td>${d.d}</td><td>${d.pred.toFixed(2)}%</td><td>${d.obs.toFixed(2)}%</td><td>${d.share.toFixed(1)}%</td>`;
+  tb.appendChild(tr);
+});
+
+["age","bmi","sex","asa"].forEach(id => {
+  el(id).addEventListener("input", recompute);
+  el(id).addEventListener("change", recompute);
+});
+sel.addEventListener("change", recompute);
+recompute();
+</script>
